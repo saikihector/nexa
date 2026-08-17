@@ -89,7 +89,24 @@
     font-size: 0.72rem;
     color: var(--text-dim);
     margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
+
+  .message.own .meta { justify-content: flex-end; }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+  }
+  .delete-btn:hover { color: var(--danger); opacity: 1; }
 
   .message .bubble {
     display: inline-block;
@@ -266,6 +283,7 @@
       const div = document.createElement("div");
       div.className = "message" + (isOwn ? " own" : "");
       div.dataset.userId = msg.user_id;
+      div.dataset.messageId = msg.id;
       const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
       const profile = profilesCache[msg.user_id];
@@ -280,15 +298,25 @@
 
       const textHtml = msg.content ? `<div class="bubble-text">${escapeHtml(msg.content)}</div>` : "";
 
+      const deleteBtnHtml = isOwn
+        ? `<button type="button" class="delete-btn" title="Excluir">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+           </button>`
+        : "";
+
       div.innerHTML = `
         ${avatarHtml(displayAvatar, displayName)}
         <div>
-          <div class="meta"><span class="name">${escapeHtml(displayName)}</span> · ${time}</div>
+          <div class="meta"><span class="name">${escapeHtml(displayName)}</span> · ${time}${deleteBtnHtml}</div>
           <div class="bubble">${mediaHtml}${textHtml}</div>
         </div>
       `;
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      if (isOwn) {
+        div.querySelector(".delete-btn").addEventListener("click", () => deleteMessage(msg));
+      }
     }
 
     function avatarHtml(url, name) {
@@ -305,6 +333,27 @@
         const newAvatarHtml = avatarHtml(profile.avatar_url, profile.username);
         avatarEl.outerHTML = newAvatarHtml;
       });
+    }
+
+    async function deleteMessage(msg) {
+      if (!confirm("Excluir esta mensagem?")) return;
+
+      // Apaga o arquivo do Storage primeiro (se houver)
+      if (msg.media_url) {
+        const path = msg.media_url.split("/chat-media/")[1];
+        if (path) await client.storage.from("chat-media").remove([path]);
+      }
+
+      const { error } = await client.from("messages").delete().eq("id", msg.id);
+
+      // A remoção visual acontece via realtime (evento DELETE), mas removo
+      // na hora também pra não esperar o round-trip caso o realtime demore.
+      if (!error) {
+        const el = document.querySelector(`.message[data-message-id="${msg.id}"]`);
+        if (el) el.remove();
+      } else {
+        alert("Erro ao excluir: " + error.message);
+      }
     }
 
     function updateSendBtnVisibility() {
@@ -397,6 +446,10 @@
         .channel("public:messages")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
           renderMessage(payload.new);
+        })
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+          const el = document.querySelector(`.message[data-message-id="${payload.old.id}"]`);
+          if (el) el.remove();
         })
         .subscribe();
 
