@@ -17,6 +17,7 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh; /* evita "pulo" quando a barra do navegador mobile aparece/some */
   font-family: 'Inter', sans-serif;
   color: var(--text);
   display: flex;
@@ -26,6 +27,10 @@ body {
   background: linear-gradient(-45deg, var(--bg-1), var(--bg-2), var(--bg-3), var(--bg-1));
   background-size: 400% 400%;
   animation: gradientShift 16s ease infinite;
+}
+
+@media (max-width: 420px) {
+  body { padding: 14px; }
 }
 
 @keyframes gradientShift {
@@ -48,6 +53,10 @@ h1, h2, .brand {
   -webkit-backdrop-filter: blur(16px);
   padding: 40px 36px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 420px) {
+  .glass-card { padding: 28px 22px; border-radius: 14px; }
 }
 
 .brand {
@@ -84,7 +93,7 @@ input {
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 16px; /* < 16px faz o iOS Safari dar zoom automático ao focar o campo */
   outline: none;
   transition: border-color 0.2s, background 0.2s;
 }

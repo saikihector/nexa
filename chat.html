@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Chat — Nexa Cord</title>
 <link rel="stylesheet" href="auth-styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -13,6 +13,7 @@
     width: 100%;
     max-width: 720px;
     height: 88vh;
+    height: 88dvh;
     margin: auto;
     display: flex;
     flex-direction: column;
@@ -25,12 +26,30 @@
     overflow: hidden;
   }
 
+  @media (max-width: 768px) {
+    .chat-shell {
+      max-width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      box-shadow: none;
+    }
+  }
+
   .chat-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 18px 24px;
     border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 420px) {
+    .chat-header { padding: 14px 16px; }
+    #profileLink span.full-label { display: none; }
   }
 
   .chat-header .brand { font-size: 1.3rem; margin: 0; }
@@ -55,16 +74,24 @@
     border: 1px solid var(--glass-border);
     padding: 7px 14px;
     border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
   #profileLink:hover { color: var(--text); border-color: var(--accent); }
 
   #messages {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 20px 24px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  @media (max-width: 420px) {
+    #messages { padding: 14px 16px; }
   }
 
   .message { max-width: 78%; display: flex; gap: 10px; }
@@ -127,8 +154,10 @@
 
   .bubble img.media, .bubble video.media {
     display: block;
-    max-width: 240px;
+    width: 100%;
+    max-width: min(240px, 60vw);
     max-height: 240px;
+    height: auto;
     border-radius: 10px;
     margin-bottom: 6px;
   }
@@ -177,7 +206,14 @@
     align-items: center;
     gap: 10px;
     padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--glass-border);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 420px) {
+    #chatForm { padding-left: 14px; padding-right: 14px; }
+    #attachPreview { padding-left: 14px; padding-right: 14px; }
   }
 
   #fileInput { display: none; }
@@ -223,6 +259,10 @@
   }
   #sendBtn.visible { display: flex; }
   #sendBtn:hover { opacity: 0.9; }
+
+  @media (max-width: 420px) {
+    #attachBtn, #sendBtn { width: 44px; height: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -230,7 +270,10 @@
     <div class="chat-header">
       <p class="brand">Nexa Cord</p>
       <div class="header-actions">
-        <a id="profileLink" href="perfil.html">Meu perfil</a>
+        <a id="profileLink" href="perfil.html">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <span class="full-label">Meu perfil</span>
+        </a>
         <button id="logoutBtn">Sair</button>
       </div>
     </div>
