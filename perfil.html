@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Perfil — Nexa Cord</title>
+<link rel="stylesheet" href="auth-styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  .glass-card { max-width: 460px; }
+
+  .avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  #avatarPreview {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--glass-border);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    color: #fff;
+  }
+
+  .avatar-actions { display: flex; flex-direction: column; gap: 6px; }
+
+  .file-label {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-align: center;
+  }
+  .file-label:hover { border-color: var(--accent); color: var(--text); }
+  #avatarInput { display: none; }
+  .file-hint { font-size: 0.72rem; color: var(--text-dim); }
+
+  .colors-row { display: flex; gap: 16px; }
+  .color-field { flex: 1; }
+  .color-field label { margin-bottom: 8px; }
+  input[type="color"] {
+    width: 100%;
+    height: 42px;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.05);
+    cursor: pointer;
+  }
+
+  .presets { display: flex; gap: 10px; margin-top: 12px; }
+  .preset-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--glass-border);
+  }
+  .preset-swatch:hover { border-color: var(--text); transform: scale(1.08); }
+
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="glass-card">
+    <div class="brand">Meu Perfil</div>
+    <p class="subtitle">Personalize sua conta</p>
+
+    <div id="msgBox" class="msg"></div>
+
+    <div class="avatar-row">
+      <div id="avatarPreview"></div>
+      <div class="avatar-actions">
+        <label for="avatarInput" class="file-label">Trocar foto</label>
+        <input type="file" id="avatarInput" accept="image/png, image/jpeg, image/webp">
+        <span class="file-hint">PNG, JPG ou WEBP · até 2MB</span>
+      </div>
+    </div>
+
+    <form id="profileForm">
+      <div>
+        <label for="username">Nome de usuário</label>
+        <input type="text" id="username" required minlength="3" maxlength="20">
+      </div>
+
+      <div>
+        <label>Cores do fundo</label>
+        <div class="colors-row">
+          <div class="color-field">
+            <input type="color" id="bgColor1">
+          </div>
+          <div class="color-field">
+            <input type="color" id="bgColor2">
+          </div>
+        </div>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <button type="submit" class="primary" id="saveBtn">Salvar alterações</button>
+    </form>
+
+    <a href="chat.html" class="back-link">← Voltar pro chat</a>
+  </div>
+
+  <script src="supabaseClient.js"></script>
+  <script src="profile-utils.js"></script>
+  <script>
+    let currentUser = null;
+    let currentProfile = null;
+    let selectedFile = null;
+
+    const msgBox = document.getElementById("msgBox");
+    const avatarPreview = document.getElementById("avatarPreview");
+    const avatarInput = document.getElementById("avatarInput");
+    const usernameInput = document.getElementById("username");
+    const bgColor1Input = document.getElementById("bgColor1");
+    const bgColor2Input = document.getElementById("bgColor2");
+    const saveBtn = document.getElementById("saveBtn");
+
+    const PRESETS = [
+      { c1: "#120b26", c2: "#5b8def" }, // padrão (roxo/azul)
+      { c1: "#0b1f26", c2: "#3fd1c7" }, // verde-ciano
+      { c1: "#26140b", c2: "#ff8b5b" }, // laranja
+      { c1: "#22102e", c2: "#ff6ba8" }, // rosa-violeta
+      { c1: "#0d0d0d", c2: "#4a4a4a" }  // neutro escuro
+    ];
+
+    function showMsg(text, type) {
+      msgBox.textContent = text;
+      msgBox.className = "msg " + type;
+    }
+
+    function renderAvatarPreview(url, username) {
+      if (url) {
+        avatarPreview.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      } else {
+        avatarPreview.innerHTML = "";
+        avatarPreview.textContent = (username || "?").charAt(0).toUpperCase();
+      }
+    }
+
+    function renderPresets() {
+      const wrap = document.getElementById("presets");
+      PRESETS.forEach((p) => {
+        const dot = document.createElement("div");
+        dot.className = "preset-swatch";
+        dot.style.background = `linear-gradient(135deg, ${p.c1}, ${p.c2})`;
+        dot.title = "Aplicar";
+        dot.addEventListener("click", () => {
+          bgColor1Input.value = p.c1;
+          bgColor2Input.value = p.c2;
+          livePreview();
+        });
+        wrap.appendChild(dot);
+      });
+    }
+
+    function livePreview() {
+      document.documentElement.style.setProperty("--bg-1", bgColor1Input.value);
+      document.documentElement.style.setProperty("--bg-2", bgColor1Input.value);
+      document.documentElement.style.setProperty("--bg-3", bgColor2Input.value);
+    }
+
+    async function init() {
+      const session = await requireAuth();
+      if (!session) return;
+      currentUser = session.user;
+
+      currentProfile = await ensureProfile(currentUser);
+
+      usernameInput.value = currentProfile.username;
+      bgColor1Input.value = currentProfile.bg_color_1;
+      bgColor2Input.value = currentProfile.bg_color_2;
+      renderAvatarPreview(currentProfile.avatar_url, currentProfile.username);
+      applyUserBackground(currentProfile);
+      renderPresets();
+    }
+
+    bgColor1Input.addEventListener("input", livePreview);
+    bgColor2Input.addEventListener("input", livePreview);
+
+    avatarInput.addEventListener("change", () => {
+      const file = avatarInput.files[0];
+      if (!file) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        showMsg("A imagem precisa ter até 2MB.", "error");
+        avatarInput.value = "";
+        return;
+      }
+
+      selectedFile = file;
+      renderAvatarPreview(URL.createObjectURL(file));
+    });
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Salvando...";
+
+      const username = usernameInput.value.trim();
+      let avatarUrl = currentProfile.avatar_url;
+
+      // Se escolheu uma foto nova, faz upload primeiro
+      if (selectedFile) {
+        const ext = selectedFile.name.split(".").pop();
+        const path = `${currentUser.id}/avatar.${ext}`;
+
+        const { error: uploadError } = await client.storage
+          .from("avatars")
+          .upload(path, selectedFile, { upsert: true });
+
+        if (uploadError) {
+          showMsg("Erro ao enviar a foto: " + uploadError.message, "error");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Salvar alterações";
+          return;
+        }
+
+        const { data: publicData } = client.storage.from("avatars").getPublicUrl(path);
+        // cache-busting: sem isso o navegador pode segurar a imagem antiga em cache
+        avatarUrl = `${publicData.publicUrl}?t=${Date.now()}`;
+      }
+
+      const { data: updated, error } = await client
+        .from("profiles")
+        .update({
+          username,
+          avatar_url: avatarUrl,
+          bg_color_1: bgColor1Input.value,
+          bg_color_2: bgColor2Input.value,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", currentUser.id)
+        .select()
+        .single();
+
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Salvar alterações";
+
+      if (error) {
+        if (error.code === "23505") {
+          showMsg("Esse nome de usuário já está em uso.", "error");
+        } else {
+          showMsg("Erro ao salvar: " + error.message, "error");
+        }
+        return;
+      }
+
+      currentProfile = updated;
+      selectedFile = null;
+      showMsg("Perfil atualizado com sucesso!", "success");
+    });
+
+    init();
+  </script>
+</body>
+</html>

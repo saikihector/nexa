@@ -46,6 +46,18 @@
   }
   #logoutBtn:hover { color: var(--text); border-color: var(--accent); }
 
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  #profileLink {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.82rem;
+    border: 1px solid var(--glass-border);
+    padding: 7px 14px;
+    border-radius: 8px;
+  }
+  #profileLink:hover { color: var(--text); border-color: var(--accent); }
+
   #messages {
     flex: 1;
     overflow-y: auto;
@@ -55,8 +67,23 @@
     gap: 12px;
   }
 
-  .message { max-width: 78%; }
-  .message.own { align-self: flex-end; text-align: right; }
+  .message { max-width: 78%; display: flex; gap: 10px; }
+  .message.own { align-self: flex-end; flex-direction: row-reverse; text-align: right; }
+
+  .msg-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 0.85rem;
+    color: #fff;
+  }
 
   .message .meta {
     font-size: 0.72rem;
@@ -115,7 +142,10 @@
   <div class="chat-shell">
     <div class="chat-header">
       <p class="brand">Nexa Cord</p>
-      <button id="logoutBtn">Sair</button>
+      <div class="header-actions">
+        <a id="profileLink" href="perfil.html">Meu perfil</a>
+        <button id="logoutBtn">Sair</button>
+      </div>
     </div>
 
     <div id="messages"></div>
@@ -127,8 +157,10 @@
   </div>
 
   <script src="supabaseClient.js"></script>
+  <script src="profile-utils.js"></script>
   <script>
     let currentUser = null;
+    let currentProfile = null;
     const messagesEl = document.getElementById("messages");
     const form = document.getElementById("chatForm");
     const input = document.getElementById("messageInput");
@@ -138,9 +170,17 @@
       const div = document.createElement("div");
       div.className = "message" + (isOwn ? " own" : "");
       const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+      const avatarHtml = msg.avatar_url
+        ? `<img class="msg-avatar" src="${msg.avatar_url}">`
+        : `<div class="msg-avatar">${escapeHtml(msg.username.charAt(0).toUpperCase())}</div>`;
+
       div.innerHTML = `
-        <div class="meta">${isOwn ? "Você" : escapeHtml(msg.username)} · ${time}</div>
-        <div class="bubble">${escapeHtml(msg.content)}</div>
+        ${avatarHtml}
+        <div>
+          <div class="meta">${isOwn ? "Você" : escapeHtml(msg.username)} · ${time}</div>
+          <div class="bubble">${escapeHtml(msg.content)}</div>
+        </div>
       `;
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -156,6 +196,9 @@
       const session = await requireAuth();
       if (!session) return;
       currentUser = session.user;
+
+      currentProfile = await ensureProfile(currentUser);
+      applyUserBackground(currentProfile);
 
       // Carrega histórico (últimas 50 mensagens)
       const { data: history, error } = await client
@@ -180,11 +223,10 @@
       const content = input.value.trim();
       if (!content) return;
 
-      const username = currentUser.user_metadata?.username || currentUser.email.split("@")[0];
-
       const { error } = await client.from("messages").insert({
         user_id: currentUser.id,
-        username,
+        username: currentProfile.username,
+        avatar_url: currentProfile.avatar_url,
         content
       });
 
