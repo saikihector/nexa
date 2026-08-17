@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Saiki Chat</title>
+<link rel="stylesheet" href="auth-styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="glass-card">
+    <div class="brand">Saiki Chat</div>
+    <p class="subtitle">Entre na sua conta</p>
+
+    <div id="msgBox" class="msg"></div>
+
+    <form id="loginForm">
+      <div>
+        <label for="email">E-mail</label>
+        <input type="email" id="email" required autocomplete="email">
+      </div>
+      <div>
+        <label for="password">Senha</label>
+        <input type="password" id="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="primary" id="loginBtn">Entrar</button>
+    </form>
+
+    <p class="switch-link">Não tem conta? <a href="cadastro.html">Cadastre-se</a></p>
+  </div>
+
+  <script src="supabaseClient.js"></script>
+  <script>
+    const form = document.getElementById("loginForm");
+    const msgBox = document.getElementById("msgBox");
+    const btn = document.getElementById("loginBtn");
+
+    function showMsg(text, type) {
+      msgBox.textContent = text;
+      msgBox.className = "msg " + type;
+    }
+
+    // Se já estiver logado, manda direto pro chat
+    client.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = "chat.html";
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      btn.textContent = "Entrando...";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      const { error } = await client.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        showMsg(error.message === "Invalid login credentials" ? "E-mail ou senha inválidos." : error.message, "error");
+        btn.disabled = false;
+        btn.textContent = "Entrar";
+        return;
+      }
+
+      window.location.href = "chat.html";
+    });
+  </script>
+</body>
+</html>
